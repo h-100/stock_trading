@@ -1,5 +1,4 @@
 import argparse
-import pdb
 
 import pandas as pd
 from backtesting import Backtest
@@ -30,15 +29,13 @@ def get_list_of_tickers(num):
   
   pass
 def convert_to_dataframe(stats):
-  # df = pd.DataFrame()
-  # df.columns = ['Start', 'End', 'Duration', 'Exposure Time', 'Equity Final [$]', 'Equity Peak [$]', 'Return [%]', 'Return (Ann.) [%]', 'Volatility (Ann.) [%]']
+
   data = {}
   col_names = ['Stock Name', '_strategy', 'Start', 'End', 'Exposure Time [%]', 'Equity Final [$]', 'Equity Peak [$]', 'Return [%]', 'Volatility (Ann.) [%]']
 
   for i in col_names:
     data[i] = []
 
-  # pdb.set_trace()
   for i in range(len(stats)):
     for key in data.keys():
       data[key].append(stats[i][key])
@@ -80,17 +77,21 @@ def main():
   ### get data
   data_list = [] 
   for ticker in args.tickers:
+    ## get data for each ticker
     data = dh.DataHandler(ticker, args.start_date, args.end_date).load_data()
+
+    ## get stats for each ticker
     stats = get_stats(args.strategy_name, data, args.cash)
+
+    ## add the stock name
     stats['Stock Name'] = ticker
     global_stats.append(stats)
 
 
+  ## process and print stats for each ticker
   for data in data_list:
     global_stats.append(get_stats(args.strategy_name, data, args.cash))
-  # data = dh.DataHandler(args.ticker, args.start_date, args.end_date).load_data()
-  # stats = get_stats(args.strategy_name, data, args.cash)
-  # global_stats.append(stats)
+
   print_stats(global_stats)
   
 
