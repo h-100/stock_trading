@@ -32,9 +32,8 @@ def get_list_of_tickers(num):
 def convert_to_dataframe(stats):
   # df = pd.DataFrame()
   # df.columns = ['Start', 'End', 'Duration', 'Exposure Time', 'Equity Final [$]', 'Equity Peak [$]', 'Return [%]', 'Return (Ann.) [%]', 'Volatility (Ann.) [%]']
-
   data = {}
-  col_names = ['Start', 'End', 'Duration', 'Exposure Time [%]', 'Equity Final [$]', 'Equity Peak [$]', 'Return [%]']
+  col_names = ['Stock Name', '_strategy', 'Start', 'End', 'Exposure Time [%]', 'Equity Final [$]', 'Equity Peak [$]', 'Return [%]', 'Volatility (Ann.) [%]']
 
   for i in col_names:
     data[i] = []
@@ -69,15 +68,29 @@ def main():
   parser.add_argument('-e', '--end-date', action="store", dest="end_date")
   parser.add_argument('-st', '--strategy', action="store", dest="strategy_name")
   parser.add_argument('-c', '--cash', action="store", dest="cash", type=int)
-  parser.add_argument('-t', '--ticker', action="store", dest="ticker")
+  parser.add_argument('-t', '--tickers', action="store", dest="tickers")
 
   args = parser.parse_args()
+
+  if args.tickers is not None:
+    args.tickers = [s.strip() for s in args.tickers.split(",")]
+  
   global_stats = []
 
-  ### get data 
-  data = dh.DataHandler(args.ticker, args.start_date, args.end_date).load_data()
-  stats = get_stats(args.strategy_name, data, args.cash)
-  global_stats.append(stats)
+  ### get data
+  data_list = [] 
+  for ticker in args.tickers:
+    data = dh.DataHandler(ticker, args.start_date, args.end_date).load_data()
+    stats = get_stats(args.strategy_name, data, args.cash)
+    stats['Stock Name'] = ticker
+    global_stats.append(stats)
+
+
+  for data in data_list:
+    global_stats.append(get_stats(args.strategy_name, data, args.cash))
+  # data = dh.DataHandler(args.ticker, args.start_date, args.end_date).load_data()
+  # stats = get_stats(args.strategy_name, data, args.cash)
+  # global_stats.append(stats)
   print_stats(global_stats)
   
 
