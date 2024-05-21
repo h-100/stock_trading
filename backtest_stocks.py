@@ -1,3 +1,9 @@
+""" Example command to run for GOOG and AAPL stocks for specified start date, end date, strategy and 
+with an initial cash investment of 10_000
+
+python3 backtest_stocks.py -s '2020-1-1' -e '2024-4-30' -st rsiOscillator -c 10_000 -t GOOG,AAP
+"""
+
 import argparse
 
 import pandas as pd
@@ -50,8 +56,6 @@ def print_stats(stats):
   df = convert_to_dataframe(stats)
   print(df.to_markdown())
 
-  # if not df.empty:
-  #   print(df.to_markdown())
   convert_to_dataframe(stats)
 
 def get_plot():
@@ -60,7 +64,7 @@ def get_plot():
 
 def main():
  
-  parser = argparse.ArgumentParser()
+  parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('-s', '--start-date', action="store", dest="start_date")
   parser.add_argument('-e', '--end-date', action="store", dest="end_date")
   parser.add_argument('-st', '--strategy', action="store", dest="strategy_name")
