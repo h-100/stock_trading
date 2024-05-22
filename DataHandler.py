@@ -3,6 +3,7 @@
 from typing import Optional
 
 import pandas as pd
+import pandas_ta as ta
 import yfinance as yf
 
 
@@ -14,11 +15,13 @@ class DataHandler:
         symbol: str,
         start_date: Optional[str] = None,
         end_date: Optional[str] = None,
+        indicator: Optional[str] = None,
     ):
         """Initialize the data handler."""
         self.symbol = symbol.upper()
         self.start_date = start_date
         self.end_date = end_date
+        self.indicator = indicator
 
     def load_data(self) -> pd.DataFrame | dict[str, pd.DataFrame]:
         """Load equity data."""
@@ -28,16 +31,9 @@ class DataHandler:
         df=df[df['Volume']!=0]
         # missing values 
         df.isna().sum()
-        # data = obb.equity.price.historical(
-        #     symbol=self.symbol,
-        #     start_date=self.start_date,
-        #     end_date=self.end_date,
-        #     provider=self.provider,
-        # ).to_df()
-
-        # if "," in self.symbol:
-        #     data = data.reset_index().set_index("symbol")
-        #     return {symbol: data.loc[symbol] for symbol in self.symbol.split(",")}
+        
+        if self.indicator == 'rsi':
+            df['RSI'] = ta.rsi(df.Close, length=14)
 
         return df
 

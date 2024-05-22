@@ -5,6 +5,7 @@ python3 backtest_stocks.py -s '2020-1-1' -e '2024-4-30' -st rsiOscillator -c 10_
 """
 
 import argparse
+import pdb
 
 import pandas as pd
 from backtesting import Backtest
@@ -12,28 +13,32 @@ from tabulate import tabulate
 
 import DataHandler as dh
 import strategies.RsiOscillator as rsiOsc
+import strategies.SR_CandleSticks as srCandles
+import strategies.SR_Rsi as srRSI
 
-
-def get_data(ticker, start_date, end_date):
-  """
-  get ticker and start and end dates and output a dataframe 
-  """
-  pass
 
 def get_stats(strategy_type, data, cash):
+
+  stats = {}
+
   if strategy_type == 'rsiOscillator':
     bt = Backtest(data, rsiOsc.RsiOscillator, cash=cash)
     stats = bt.run()
-    return stats
-  else:
-    return {}
+  elif strategy_type == 'SR_rsi':
+    bt = Backtest(data, srRSI.SupportResistanceRSI, cash=cash)
+    stats = bt.run()
+  elif strategy_type == 'SR_candles':
+    bt = Backtest(data, srCandles.SR_Candles, cash=cash)
+    stats = bt.run()
+    
+  return stats
 
 def get_list_of_tickers(num):
   """
   num is optional
-  """
-  
+  """  
   pass
+
 def convert_to_dataframe(stats):
 
   data = {}
@@ -67,7 +72,7 @@ def main():
   parser = argparse.ArgumentParser(description=__doc__)
   parser.add_argument('-s', '--start-date', action="store", dest="start_date")
   parser.add_argument('-e', '--end-date', action="store", dest="end_date")
-  parser.add_argument('-st', '--strategy', action="store", dest="strategy_name")
+  parser.add_argument('-st', '--strategy', action="store", dest="strategy_name", help="strategy types = 1. rsiOscillator 2. SR_rsi 3. SR_candles")
   parser.add_argument('-c', '--cash', action="store", dest="cash", type=int)
   parser.add_argument('-t', '--tickers', action="store", dest="tickers")
 
@@ -82,11 +87,16 @@ def main():
   data_list = [] 
   for ticker in args.tickers:
     ## get data for each ticker
-    data = dh.DataHandler(ticker, args.start_date, args.end_date).load_data()
+    if args.strategy_name == 'SR_rsi':
+      indicator = 'rsi'
+    else:
+      indicator = None
+
+    data = dh.DataHandler(ticker, args.start_date, args.end_date, indicator).load_data()
 
     ## get stats for each ticker
     stats = get_stats(args.strategy_name, data, args.cash)
-
+  
     ## add the stock name
     stats['Stock Name'] = ticker
     global_stats.append(stats)
@@ -99,23 +109,5 @@ def main():
   print_stats(global_stats)
   
 
-
-
 if __name__ == "__main__":
   main()
-
-## Priority TODOS
-####### add handlers for flags, are they required or are they not required
-####### add help indicating how to run everything
-#### 1. TODO1: transform stats to columns and print in the form of a table 
-#### 2. TODO2: do the same for multiple number of stocks 
-#### 3. TODO3: add other strategies 
-#### 4. TODO4: add plots 
-
-
-###########################################
-
-## TODO: add argeparse to integrate elements 
-## TODO: display stats for a single strategy that runs once and displays the graph
-## TODO: display profit states for same data source but on different data ranges; comparison table
-## TODO: display profit stats for multiple data sources and same date ranges; comparison table

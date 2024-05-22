@@ -21,3 +21,9 @@
 1. Make RSI Oscillator work 
 2. Make other strategies work
 3. Make sure they output a prettyprint table 
+
+
+#TODO 
+-- Add multiple strategies
+-- multiple stocks, multiple strategies 
+-- 
