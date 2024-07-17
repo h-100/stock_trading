@@ -4,6 +4,7 @@ import sys
 import matplotlib.pyplot as plt
 import os
 from datetime import datetime
+import pdb
 
 def read_stock_data(stock_name, interval, start_date, end_date):
     # Convert the date strings to datetime objects
@@ -67,17 +68,17 @@ def crossover_signal(data, short_window, long_window, slope_threshold):
 
     # Buy signal
     signals['Signal'] = np.where(
-        (data[short_window] > data[long_window]) &
-        (data['Slope_' + short_window].abs() > slope_threshold) &
-        (data['Slope_' + long_window].abs() > slope_threshold),
-        1.0, 0.0)
+        (data[short_window] > data[long_window]),
+      #  (data['Slope_' + short_window].abs() > slope_threshold) &
+      #  (data['Slope_' + long_window].abs() > slope_threshold),
+        1.0, signals['Signal'])
 
     # Sell signal
     signals['Signal'] = np.where(
-        (data[short_window] < data[long_window]) &
-        (data['Slope_' + short_window].abs() > slope_threshold) &
-        (data['Slope_' + long_window].abs() > slope_threshold),
-        -1.0, signals['Signal'])
+        (data[short_window] < data[long_window]),
+      #  (data['Slope_' + short_window].abs() > slope_threshold) &
+      #   (data['Slope_' + long_window].abs() > slope_threshold),
+          -1.0, signals['Signal'])
 
     return signals
 
@@ -111,56 +112,53 @@ def plot(stock_data, small, large):
   plt.legend()
   plt.show()
 
-def trading_simulation(data, initial_cash):
-    
-    file = open('output.csv', 'a')
-    
 
-    cash = initial_cash
-    shares = 0
-    portfolio_value = []
-    buy_price = 0
-    trades = pd.DataFrame()
+import pandas as pd
+
+def trading_simulation(stock_data, initial_cash, strategy_name, strategy_parameters, interval, stock_name, start_date, end_date):
+    
     trades = []
-    buy_date = None
-    buy_value = None
+    position = None
+    file_name = f'{stock_name}_{interval}_{strategy_name}_{strategy_parameters}_{start_date}_{end_date}.csv'
 
-    for i in range(len(data)):
-        if data['Signal'].iloc[i] == 1.0 and cash > 0:  # Buy signal
-            shares = cash // data['close'].iloc[i]
-            buy_price = data['close'].iloc[i]
-            total_cash_used = shares * buy_price
-            cash -= total_cash_used
-            buy_date = data['timestamp'].iloc[i]
-            buy_value = total_cash_used
-            num_shares_bought = shares
-                       
-            # line =f'{data['timestamp'].iloc[i]}, {buy_price}, {shares}'
-        elif data['Signal'].iloc[i] == -1.0 and shares > 0:  # Sell signal
-            cash += shares * data['close'].iloc[i]
-            shares = 0
-            if buy_date is not None:
-                profit_or_loss = (shares * data['close'].iloc[i]) - buy_value
-                sell_date = data['timestamp'].iloc[i]
-                sell_value = data['close'].iloc[i]
-                trades.append({
-                'buy_date': buy_date,
-                'sell_date': sell_date,
-                'buy_value': buy_value,
-                'num_shares_bought': num_shares_bought,
-                'sell_value': sell_value,
-                'profit_or_loss': profit_or_loss
-                })
-                """
-                TODO:
-                add intervals, strategy_name, run_id, strategy parameters  
-                """
-            buy_date = None
+    for i, row in stock_data.iterrows():
+        if row['Signal'] == 1 and position is None:  # Buy signal and no current position
+            position = {
+                'buy_date': row.timestamp,
+                'buy_value': row['close'],
+                'num_shares': initial_cash / row['close'],  # Example: Buying $100 worth of shares
+                'position_type': 'long'
+            }
+        elif row['Signal'] == -1 and position is None:  # Sell short signal and no current position
+            position = {
+                'buy_date': row.timestamp,
+                'buy_value': row['close'],
+                'num_shares': initial_cash / row['close'],  # Example: Selling short $100 worth of shares
+                'position_type': 'short'
+            }
 
-        # Calculate current portfolio value
-        portfolio_value.append(cash + shares * data['close'].iloc[i])
+        elif row['Signal'] == -1 and position is not None and position['position_type'] == 'long':  # Sell signal for long position
+            position['sell_date'] = row.timestamp
+            position['sell_value'] = row['close']
+            position['profit_loss'] = (position['sell_value'] - position['buy_value']) * position['num_shares']
+            trades.append(position)
+            position = None  # Clear the position
+        elif row['Signal'] == 1 and position is not None and position['position_type'] == 'short':  # Buy to cover signal for short position
+            position['sell_date'] = row.timestamp
+            position['sell_value'] = row['close']
+            position['profit_loss'] = (position['buy_value'] - position['sell_value']) * position['num_shares']
+            trades.append(position)
+            position = None  # Clear the position
 
-    return portfolio_value, cash + shares * data['close'].iloc[-1]
+    # Convert trades list to DataFrame
+    trades_df = pd.DataFrame(trades)
+
+    # Save to CSV
+    trades_df.to_csv(file_name, index=False)
+    print(f"Total Profit: ${trades_df['profit_loss'].sum()}")
+    print(f"Total Profit (only +ve trades): ${trades_df['profit_loss'][trades_df['profit_loss'] > 0].sum()}")
+
+    return trades_df
 
 
 def main():
@@ -184,15 +182,16 @@ def main():
   stock_data[key_slope_large] = calculate_slope(stock_data[key_large], period=1)
 
   # Set the slope threshold
-  slope_threshold = 0.01  # Adjust based on your specific requirements
+  slope_threshold = 0 # Adjust based on your specific requirements
 
   signals = crossover_signal(stock_data, key_small, key_large, slope_threshold)
   stock_data['Signal'] = signals['Signal']
 
-  initial_cash = 10000  # Initial cash amount
-  stock_data['Portfolio_Value'], final_portfolio_value = trading_simulation(stock_data, initial_cash)
+  initial_cash = 10000 # Initial cash amount
+  strategy_parameters = f'{small}MA_{large}MA'
+  trading_simulation(stock_data, initial_cash, 'MA CrossOver', strategy_parameters, interval, stock, start_date, end_date)
 
-  print(f"Final Portfolio Value: ${final_portfolio_value:.2f}")
+  
 
 if __name__ == "__main__":
     main()

@@ -1,10 +1,7 @@
 import requests
 import pandas as pd
-import pdb
 import time
 import os
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
 
 def get_data_from_url(stock, month, year, interval):
   # Step 1: Capture JSON data from a URL
