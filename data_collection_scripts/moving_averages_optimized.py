@@ -9,9 +9,7 @@ import pdb
 
 def read_stock_data(stock_name, interval, start_date, end_date):
     # Convert the date strings to datetime objects
-    # start_date = datetime.strptime(start_date, "%d-%m-%Y")
     start_date = datetime.strptime(start_date, "%d-%m-%Y").replace(hour=0, minute=0, second=0)
-    # end_date = datetime.strptime(end_date, "%d-%m-%Y")
     end_date = datetime.strptime(end_date, "%d-%m-%Y").replace(hour=23, minute=59, second=59)
     months = ['01', '02', '03', '04', '05', '06', '07', '08', '09', '10', '11', '12']
 
@@ -59,16 +57,32 @@ def read_stock_data(stock_name, interval, start_date, end_date):
     return filtered_data_sorted
 
 # Calculate the slope of the moving averages
-def calculate_slope(series, period=1):
+def calculate_slope(series, period):
     return (series - series.shift(period)) / period
 
 # Identify crossover signals
-def crossover_signal(data, short_window, long_window, slope_threshold, small_win, long_win):
+def crossover_signal(data, short_window, long_window, area_threshold, small_win, long_win):
     signals = pd.DataFrame(index=data.index)
     signals['Signal'] = 0.0
     
     # pdb.set_trace()
     data['Signals'] = 0
+
+    key_slope_small = f'Slope_{short_window}'
+    key_slope_large = f'Slope_{long_window}'
+
+    data['Slope_Area'] = np.abs(data[key_slope_small] - data[key_slope_large])
+
+    # data['Signals'][int(small_win):] = np.where(
+    #     (data[short_window][int(small_win):] > data[long_window][int(small_win):]) & 
+    #     (data['Slope_Area'][int(small_win):] > area_threshold), 1, 0
+    # )
+
+    # data['Signals'][int(small_win):] = np.where(
+    #     (data[short_window][int(small_win):] > data[long_window][int(small_win):]) & 
+    #     (data[key_slope_small][int(small_win):] > slope_threshold) & 
+    #     (data[key_slope_large][int(small_win):] > slope_threshold), 1, 0
+    # )
     data['Signals'][int(small_win):] = np.where(data[short_window][int(small_win):] > data[long_window][int(small_win):], 1, 0)
 
     signals['Signal'] = data['Signals'].diff()
@@ -90,8 +104,8 @@ def plot(stock_data, small, large):
   df.set_index('timestamp', inplace=True)
 
   plt.plot(df.index, df['close'], label='Close Price')
-#   plt.plot(df[key_small], label=label1)
-#   plt.plot(df[key_large], label=label2)
+  plt.plot(df[key_small], label=label1)
+  plt.plot(df[key_large], label=label2)
 
   # Plot buy signals
   plt.plot(df.loc[df['Signal'] == 1.0].index, 
@@ -115,10 +129,7 @@ def plot(stock_data, small, large):
   plt.legend()
   plt.grid(True)
 
-
-# Ensure the layout is tight
   plt.tight_layout()
-
   plt.show()
 
 def trading_simulation(stock_data, initial_cash, strategy_name, strategy_parameters, interval, stock_name, start_date, end_date):
@@ -183,9 +194,12 @@ def trading_simulation(stock_data, initial_cash, strategy_name, strategy_paramet
     
     trades_df.to_csv(file_path, index=False)
 
-    final_cash_balance = trades_df['cash_balance'].iloc[-1]
- 
-    print(f"Final Profit: ${final_cash_balance - initial_cash}")
+    if trades_df.empty:
+        print("No trades")
+
+    else:
+        final_cash_balance = trades_df['cash_balance'].iloc[-1]
+        print(f"Final Profit: ${final_cash_balance - initial_cash}")
 
     return trades_df
 
@@ -207,13 +221,15 @@ def main():
   key_slope_small = f'Slope_{key_small}'
   key_slope_large = f'Slope_{key_large}'
 
-  stock_data[key_slope_small] = calculate_slope(stock_data[key_small], period=1)
-  stock_data[key_slope_large] = calculate_slope(stock_data[key_large], period=1)
+  
+  stock_data[key_slope_small] = calculate_slope(stock_data[key_small], period=int(small))
+  stock_data[key_slope_large] = calculate_slope(stock_data[key_large], period=int(large))
 
   # Set the slope threshold
-  slope_threshold = 0 # Adjust based on your specific requirements
+  slope_threshold = 0.05 # Adjust based on your specific requirements
+  area_threshold = 0.07
 
-  signals = crossover_signal(stock_data, key_small, key_large, slope_threshold, small, large)
+  signals = crossover_signal(stock_data, key_small, key_large, area_threshold, small, large)
   stock_data['Signal'] = signals['Signal']
 
   initial_cash = 10000 # Initial cash amount
