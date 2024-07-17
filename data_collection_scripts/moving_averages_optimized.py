@@ -97,11 +97,17 @@ def plot(stock_data, small, large):
   plt.plot(df.loc[df['Signal'] == 1.0].index, 
           df[key_small][df['Signal'] == 1.0], 
           '^', markersize=10, color='g', label='Buy Signal')
+  
+  for i in df.loc[df['Signal'] == 1.0].index:
+    plt.text(i, df['close'][i], f'{df['close'][i]:.2f}', fontsize=9, ha='center', color='g', va='bottom')
 
   # Plot sell signals
   plt.plot(df.loc[df['Signal'] == -1.0].index, 
           df[key_small][df['Signal'] == -1.0], 
           'v', markersize=10, color='r', label='Sell Signal')
+  
+  for i in df.loc[df['Signal'] == -1.0].index:
+    plt.text(i, df['close'][i], f'{df['close'][i]:.2f}', fontsize=9, ha='center', color='r', va='bottom')
 
   plt.title('Stock Price with Buy and Sell Signals')
   plt.xlabel('Date')
@@ -177,7 +183,9 @@ def trading_simulation(stock_data, initial_cash, strategy_name, strategy_paramet
     
     trades_df.to_csv(file_path, index=False)
 
-    print(f"Final Equity: ${trades_df['cash_balance'].sum()}")
+    final_cash_balance = trades_df['cash_balance'].iloc[-1]
+ 
+    print(f"Final Profit: ${final_cash_balance - initial_cash}")
 
     return trades_df
 
