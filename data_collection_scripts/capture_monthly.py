@@ -17,8 +17,6 @@ def get_data_from_url(stock, month, year, interval):
       json_data = None
 
   return json_data
-# {
-#    'Time Series': {'2024-06-10 04:04:00': {'1. open': '120.1100', '2. high': '120.1300', '3. low': '119.6100', '4. close': '119.7600', '5. volume': '32306'}, '2024-06-10 04:03:00': {'1. open': '119.2600', '2. high': '120.1300', '3. low': '119.2100', '4. close': '120.1000', '5. volume': '48437'} }}
 
 def convert_to_dataframe(json_data):
    df = pd.DataFrame()

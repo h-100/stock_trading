@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import sys
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import os
 from datetime import datetime
 import pdb
@@ -62,23 +63,15 @@ def calculate_slope(series, period=1):
     return (series - series.shift(period)) / period
 
 # Identify crossover signals
-def crossover_signal(data, short_window, long_window, slope_threshold):
+def crossover_signal(data, short_window, long_window, slope_threshold, small_win, long_win):
     signals = pd.DataFrame(index=data.index)
     signals['Signal'] = 0.0
+    
+    # pdb.set_trace()
+    data['Signals'] = 0
+    data['Signals'][int(small_win):] = np.where(data[short_window][int(small_win):] > data[long_window][int(small_win):], 1, 0)
 
-    # Buy signal
-    signals['Signal'] = np.where(
-        (data[short_window] > data[long_window]),
-      #  (data['Slope_' + short_window].abs() > slope_threshold) &
-      #  (data['Slope_' + long_window].abs() > slope_threshold),
-        1.0, signals['Signal'])
-
-    # Sell signal
-    signals['Signal'] = np.where(
-        (data[short_window] < data[long_window]),
-      #  (data['Slope_' + short_window].abs() > slope_threshold) &
-      #   (data['Slope_' + long_window].abs() > slope_threshold),
-          -1.0, signals['Signal'])
+    signals['Signal'] = data['Signals'].diff()
 
     return signals
 
@@ -92,28 +85,35 @@ def plot(stock_data, small, large):
   label1 = f'{small}-day SMA'
   label2 = f'{large}-day SMA'
   plt.figure(figsize=(14, 7))
-  plt.plot(stock_data['close'], label='Close Price')
-  plt.plot(stock_data[key_small], label=label1)
-  plt.plot(stock_data[key_large], label=label2)
+  df = pd.DataFrame(stock_data)
+  df['timestamp'] = pd.to_datetime(df['timestamp'])
+  df.set_index('timestamp', inplace=True)
+
+  plt.plot(df.index, df['close'], label='Close Price')
+#   plt.plot(df[key_small], label=label1)
+#   plt.plot(df[key_large], label=label2)
 
   # Plot buy signals
-  plt.plot(stock_data.loc[stock_data['Signal'] == 1.0].index, 
-          stock_data[key_small][stock_data['Signal'] == 1.0], 
+  plt.plot(df.loc[df['Signal'] == 1.0].index, 
+          df[key_small][df['Signal'] == 1.0], 
           '^', markersize=10, color='g', label='Buy Signal')
 
   # Plot sell signals
-  plt.plot(stock_data.loc[stock_data['Signal'] == -1.0].index, 
-          stock_data[key_small][stock_data['Signal'] == -1.0], 
+  plt.plot(df.loc[df['Signal'] == -1.0].index, 
+          df[key_small][df['Signal'] == -1.0], 
           'v', markersize=10, color='r', label='Sell Signal')
 
   plt.title('Stock Price with Buy and Sell Signals')
   plt.xlabel('Date')
   plt.ylabel('Price')
   plt.legend()
+  plt.grid(True)
+
+
+# Ensure the layout is tight
+  plt.tight_layout()
+
   plt.show()
-
-
-import pandas as pd
 
 def trading_simulation(stock_data, initial_cash, strategy_name, strategy_parameters, interval, stock_name, start_date, end_date):
     
@@ -121,32 +121,46 @@ def trading_simulation(stock_data, initial_cash, strategy_name, strategy_paramet
     position = None
     file_name = f'{stock_name}_{interval}_{strategy_name}_{strategy_parameters}_{start_date}_{end_date}.csv'
 
+    cash_balance = initial_cash
+
     for i, row in stock_data.iterrows():
         if row['Signal'] == 1 and position is None:  # Buy signal and no current position
             position = {
                 'buy_date': row.timestamp,
                 'buy_value': row['close'],
                 'num_shares': initial_cash / row['close'],  # Example: Buying $100 worth of shares
-                'position_type': 'long'
+                'position_type': 'long',
+                'cash_balance': cash_balance
             }
+            cash_balance -= position['num_shares'] * row['close']  # Adjust cash balance for purchase
+
         elif row['Signal'] == -1 and position is None:  # Sell short signal and no current position
             position = {
                 'buy_date': row.timestamp,
                 'buy_value': row['close'],
                 'num_shares': initial_cash / row['close'],  # Example: Selling short $100 worth of shares
-                'position_type': 'short'
+                'position_type': 'short',
+                'cash_balance': cash_balance
             }
+            cash_balance += position['num_shares'] * row['close']
 
         elif row['Signal'] == -1 and position is not None and position['position_type'] == 'long':  # Sell signal for long position
             position['sell_date'] = row.timestamp
             position['sell_value'] = row['close']
             position['profit_loss'] = (position['sell_value'] - position['buy_value']) * position['num_shares']
+
+            cash_balance += position['num_shares'] * position['sell_value']  # Adjust cash balance for sale
+            position['cash_balance'] = cash_balance
+
             trades.append(position)
             position = None  # Clear the position
+
         elif row['Signal'] == 1 and position is not None and position['position_type'] == 'short':  # Buy to cover signal for short position
             position['sell_date'] = row.timestamp
             position['sell_value'] = row['close']
             position['profit_loss'] = (position['buy_value'] - position['sell_value']) * position['num_shares']
+            cash_balance -= position['num_shares'] * position['sell_value']  # Adjust cash balance for covering
+            position['cash_balance'] = cash_balance
             trades.append(position)
             position = None  # Clear the position
 
@@ -155,8 +169,8 @@ def trading_simulation(stock_data, initial_cash, strategy_name, strategy_paramet
 
     # Save to CSV
     trades_df.to_csv(file_name, index=False)
-    print(f"Total Profit: ${trades_df['profit_loss'].sum()}")
-    print(f"Total Profit (only +ve trades): ${trades_df['profit_loss'][trades_df['profit_loss'] > 0].sum()}")
+    print(f"Final Equity: ${trades_df['cash_balance'].sum()}")
+    # print(f"Total Profit (only +ve trades): ${trades_df['profit_loss'][trades_df['profit_loss'] > 0].sum()}")
 
     return trades_df
 
@@ -184,12 +198,14 @@ def main():
   # Set the slope threshold
   slope_threshold = 0 # Adjust based on your specific requirements
 
-  signals = crossover_signal(stock_data, key_small, key_large, slope_threshold)
+  signals = crossover_signal(stock_data, key_small, key_large, slope_threshold, small, large)
   stock_data['Signal'] = signals['Signal']
 
   initial_cash = 10000 # Initial cash amount
   strategy_parameters = f'{small}MA_{large}MA'
   trading_simulation(stock_data, initial_cash, 'MA CrossOver', strategy_parameters, interval, stock, start_date, end_date)
+
+  plot(stock_data, small, large)
 
   
 
