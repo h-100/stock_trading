@@ -168,9 +168,16 @@ def trading_simulation(stock_data, initial_cash, strategy_name, strategy_paramet
     trades_df = pd.DataFrame(trades)
 
     # Save to CSV
-    trades_df.to_csv(file_name, index=False)
+
+    folder_name = f'data/trade_iterations'
+    file_path = os.path.join(folder_name, file_name)
+
+    if not os.path.exists(folder_name):
+        os.makedirs(folder_name)
+    
+    trades_df.to_csv(file_path, index=False)
+
     print(f"Final Equity: ${trades_df['cash_balance'].sum()}")
-    # print(f"Total Profit (only +ve trades): ${trades_df['profit_loss'][trades_df['profit_loss'] > 0].sum()}")
 
     return trades_df
 
