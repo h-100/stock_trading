@@ -85,23 +85,73 @@ def crossover_signal(data, small_win, long_win):
     data['Signals'] = 0
 
     data['Slope_Area'] = np.abs(data[key_slope_small] - data[key_slope_large])
-
-    # data['Signals'][int(small_win):] = np.where(
-    #     (data[short_window][int(small_win):] > data[long_window][int(small_win):]) & 
-    #     (data['Slope_Area'][int(small_win):] > area_threshold), 1, 0
-    # )
-
-    # data['Signals'][int(small_win):] = np.where(
-    #     (data[short_window][int(small_win):] > data[long_window][int(small_win):]) & 
-    #     (data[key_slope_small][int(small_win):] > slope_threshold) & 
-    #     (data[key_slope_large][int(small_win):] > slope_threshold), 1, 0
-    # )
     data['Signals'][int(small_win):] = np.where(data[key_small][int(small_win):] > data[key_large][int(small_win):], 1, 0)
 
     signals['Signal'] = data['Signals'].diff()
 
     return signals
 
+import pandas as pd
+
+def compute_macd_signals(prices, short_window=12, long_window=26, signal_window=9):
+ 
+    # Calculate the short-term EMA
+    short_ema = prices.ewm(span=short_window, adjust=False).mean()
+    
+    # Calculate the long-term EMA
+    long_ema = prices.ewm(span=long_window, adjust=False).mean()
+    
+    # Calculate the MACD line
+    macd = short_ema - long_ema
+    
+    # Calculate the signal line
+    signal_line = macd.ewm(span=signal_window, adjust=False).mean()
+    
+    # Create a DataFrame to store the values
+    df = pd.DataFrame({'Prices': prices, 'MACD': macd, 'Signal_Line': signal_line})
+    
+    # Create buy/sell signals
+    df['Signals'] = 0
+    df['Signals'][short_window:] = \
+        [1 if macd.iloc[i] > signal_line.iloc[i] and macd.iloc[i - 1] <= signal_line.iloc[i - 1] else
+         -1 if macd.iloc[i] < signal_line.iloc[i] and macd.iloc[i - 1] >= signal_line.iloc[i - 1] else 0
+         for i in range(short_window, len(macd))]
+    
+    df['Signal'] = df['Signals'].diff()
+    
+    return df
+
+
+def plot_(stock_data):
+  
+  plt.figure(figsize=(14, 7))
+  df = pd.DataFrame(stock_data)
+  df['timestamp'] = pd.to_datetime(df['timestamp'])
+  df.set_index('timestamp', inplace=True)
+
+  plt.plot(df.index, df['close'], label='Close Price')
+
+  # Plot buy signals
+ 
+  
+  for i in df.loc[df['Signal'] == 1.0].index:
+    plt.text(i, df['close'][i], f'{df['close'][i]:.2f}', fontsize=9, ha='center', color='g', va='bottom')
+
+  # Plot sell signals
+  
+  for i in df.loc[df['Signal'] == -1.0].index:
+    plt.text(i, df['close'][i], f'{df['close'][i]:.2f}', fontsize=9, ha='center', color='r', va='bottom')
+
+  plt.title('Stock Price with Buy and Sell Signals')
+  plt.xlabel('Date')
+  plt.ylabel('Price')
+  plt.legend()
+  plt.grid(True)
+
+  plt.tight_layout()
+  plt.show()
+
+    
 def plot(stock_data, small, large):
   key_small = f'SMA_{small}'
   key_large = f'SMA_{large}'
@@ -145,11 +195,21 @@ def plot(stock_data, small, large):
   plt.tight_layout()
   plt.show()
 
+def get_string_name(strategy_parameters):
+    # pdb.set_trace()
+    name = ''
+    for key, value in strategy_parameters.items():
+        name += f'{str(key)}_{str(value)}'
+
+    return name
+
 def trading_simulation(stock_data, initial_cash, strategy_name, strategy_parameters, interval, stock_name, start_date, end_date):
     
     trades = []
     position = None
-    file_name = f'{stock_name}_{interval}_{strategy_name}_{strategy_parameters}_{start_date}_{end_date}.csv'
+
+    strategy_name = get_string_name(strategy_parameters)
+    file_name = f'{stock_name}_{interval}_{strategy_name}_{strategy_name}_{start_date}_{end_date}.csv'
 
     cash_balance = initial_cash
 
@@ -227,13 +287,30 @@ def main():
   stock_data = read_stock_data(stock, interval, start_date, end_date)
  
   initial_cash = 10000 # Initial cash amount
-  strategy_parameters = f'{small}MA_{large}MA'
+  
+  current_strategy = 'MACD'
 
-  signals = crossover_signal(stock_data, small, large)
+  current_strategy_params = {
+        'small': '7',
+        'long': '14'
+    }
+  
+  if current_strategy == 'MA CrossOver':
+      signals = crossover_signal(stock_data, current_strategy_params['small'], current_strategy_params['long'])
+
+  elif current_strategy == 'MACD':
+    signals = compute_macd_signals(stock_data, short_window=12, long_window=26, signal_window=9)
+
+    
   stock_data['Signal'] = signals['Signal']
-  trading_simulation(stock_data, initial_cash, 'MA CrossOver', strategy_parameters, interval, stock, start_date, end_date)
+  trading_simulation(stock_data, initial_cash, current_strategy, current_strategy_params, interval, stock, start_date, end_date)
 
-  plot(stock_data, small, large)
+  if current_strategy == 'MA CrossOver':
+    plot(stock_data, small, large)
+  elif current_strategy == 'MACD':
+    plot_(stock_data)
+      
+
 
   
 
