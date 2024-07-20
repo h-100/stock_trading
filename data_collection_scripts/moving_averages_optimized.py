@@ -84,7 +84,14 @@ def crossover_signal(data, small_win, long_win):
     # pdb.set_trace()
     data['Signals'] = 0
 
-    data['Slope_Area'] = np.abs(data[key_slope_small] - data[key_slope_large])
+    # data['Slope_Area'] = np.abs(data[key_slope_small] - data[key_slope_large])
+
+    # small_slope_threshold = 0.05
+
+    # data['Signals'][int(small_win):] = np.where(
+    #     (data[key_small][int(small_win):] > data[key_large][int(small_win):]) & 
+    #     (data[key_slope_small][int(small_win):] >= small_slope_threshold), 1, 0
+    # )
 
     # data['Signals'][int(small_win):] = np.where(
     #     (data[short_window][int(small_win):] > data[long_window][int(small_win):]) & 
