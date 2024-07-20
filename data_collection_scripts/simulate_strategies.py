@@ -76,8 +76,8 @@ def crossover_signal(data, small_win, long_win):
     data[key_slope_large] = calculate_slope(data[key_large], period=int(long_win))
 
     # Set the slope threshold
-    slope_threshold = 0.05 # Adjust based on your specific requirements
-    area_threshold = 0.07
+    # slope_threshold = 0.05 # Adjust based on your specific requirements
+    # area_threshold = 0.07
     signals = pd.DataFrame(index=data.index)
     signals['Signal'] = 0.0
     
