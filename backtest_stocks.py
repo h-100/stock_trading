@@ -5,7 +5,6 @@ python3 backtest_stocks.py -s '2020-1-1' -e '2024-4-30' -st rsiOscillator -c 10_
 """
 
 import argparse
-import pdb
 
 import pandas as pd
 from backtesting import Backtest

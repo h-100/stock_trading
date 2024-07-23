@@ -1,0 +1,2 @@
+Strategy,Symbol,Duration,Params,Test Period,Profit
+MovingAverage,NVDA,5T,"(7, 13)",2024-05-01 to 2024-06-01,-10000

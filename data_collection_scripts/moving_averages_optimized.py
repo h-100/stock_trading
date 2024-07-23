@@ -61,6 +61,46 @@ def calculate_slope(series, period):
     return (series - series.shift(period)) / period
 
 
+import pandas as pd
+import numpy as np
+
+def crossover_signal_improved(data, small_win, long_win):
+    key_small = f'SMA_{small_win}'
+    key_large = f'SMA_{long_win}'
+
+    # Calculate the moving averages
+    data[key_small] = data['close'].rolling(window=int(small_win)).mean()
+    data[key_large] = data['close'].rolling(window=int(long_win)).mean()
+
+    # Calculate the slope of the smaller moving average
+    data['Slope'] = data[key_small].diff()
+
+    signals = pd.DataFrame(index=data.index)
+    signals['Signal'] = 0.0
+
+    # Initialize Signals column in the original data
+    data['Signals'] = 0
+
+    # Generate signals based on crossover and slope condition
+    for i in range(int(small_win), len(data)):
+        if data[key_small].iloc[i] > data[key_large].iloc[i] and data['Slope'].iloc[i] > 0:
+            data['Signals'].iloc[i] = 1
+        elif data[key_small].iloc[i] < data[key_large].iloc[i] and data['Slope'].iloc[i] < 0:
+            data['Signals'].iloc[i] = -1
+        else:
+            data['Signals'].iloc[i] = 0
+
+    # Calculate the signal changes (1 for buy, -1 for sell)
+    signals['Signal'] = data['Signals'].diff()
+
+    return signals
+
+# Example usage:
+# data = pd.DataFrame({'close': [your_data_here]})
+# signals = crossover_signal(data, small_win=50, long_win=200)
+
+
+
 def crossover_signal(data, small_win, long_win):
     key_small = f'SMA_{small_win}'
     key_large = f'SMA_{long_win}'
@@ -72,12 +112,12 @@ def crossover_signal(data, small_win, long_win):
     key_slope_large = f'Slope_{key_large}'
 
   
-    data[key_slope_small] = calculate_slope(data[key_small], period=int(small_win))
-    data[key_slope_large] = calculate_slope(data[key_large], period=int(long_win))
+    # data[key_slope_small] = calculate_slope(data[key_small], period=int(small_win))
+    # data[key_slope_large] = calculate_slope(data[key_large], period=int(long_win))
 
 
-    slope_threshold = 0.05 
-    area_threshold = 0.07
+    # slope_threshold = 0.05 
+    # area_threshold = 0.07
     signals = pd.DataFrame(index=data.index)
     signals['Signal'] = 0.0
     
@@ -147,13 +187,7 @@ def trading_simulation_shorting_logic(stock_data, initial_cash, strategy_name, s
     cash_balance = initial_cash
 
     for i, row in stock_data.iterrows():
-        ## buy signal + no shares have been bought before position == short (shares have been bought before )
-        """
-        1. when buy singal == 1, normally we would just buy the shares
-        2. since we also have the short position, that is shares have been sold before need to be bought again to make a profit, what do we do?
-        3. extra shares bought with the same value 
-        
-        """
+        # if we have a buy signal and either we have bought short at a prior point or we are buying for the first time
         if row['Signal'] == 1 and (position is None or position['position_type'] == 'short'):  # Buy signal and no current position or covering a short position
             if position and position['position_type'] == 'short':  # Cover short position
                 position['sell_date'] = row.timestamp
@@ -168,7 +202,7 @@ def trading_simulation_shorting_logic(stock_data, initial_cash, strategy_name, s
                 position['cash_balance'] = cash_balance - borrow_cost  # Subtracting the borrow cost
                 position['borrow_cost'] = borrow_cost
                 trades.append(position)
-                position = None  # Clear the position
+                position = None  # Clear the positionx
 
             # Open new long position
             position = {
@@ -281,8 +315,6 @@ def trading_simulation(stock_data, initial_cash, strategy_name, strategy_paramet
  
     trades_df = pd.DataFrame(trades)
 
-##TODOL: when to do short. when no pre-buy signals exist. when pre-buy signals exist we do long
-##TODO: can we do a short when we've already sold at a point
     folder_name = f'data/trade_iterations'
     file_path = os.path.join(folder_name, file_name)
 
@@ -313,7 +345,7 @@ def main():
   initial_cash = 10000 
   strategy_parameters = f'{small}MA_{large}MA'
 
-  signals = crossover_signal(stock_data, small, large)
+  signals = crossover_signal_improved(stock_data, small, large)
   stock_data['Signal'] = signals['Signal']
   trading_simulation_shorting_logic(stock_data, initial_cash, 'MA CrossOver', strategy_parameters, interval, stock, start_date, end_date)
 

@@ -14,6 +14,7 @@ class RsiOscillator(Strategy):
         
     def next(self):
         if crossover(self.rsi, self.upper_bound):
+            #TODO: check why not self.sell()
             self.position.close() # sell 
         elif crossover(self.lower_bound, self.rsi):
             self.buy() # buy
